@@ -14,6 +14,7 @@
     - haproxy-install
 
 - name: Install - ensure haproxy package is installed
+  become: true
   ansible.builtin.package:
     name: "{{ haproxy_package_name }}{{ (ansible_os_family == 'RedHat') | ternary('-', '=') }}{{ haproxy_pin_version }}.*"
     state: present
