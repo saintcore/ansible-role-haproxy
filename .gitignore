@@ -1,0 +1,20 @@
+.vscode/settings.json
+
+# Ansible/Molecule
+.ansible/
+.molecule/
+.cache/
+*.retry
+molecule/default/files
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# scap results
+files/scap-results
+files/haproxy-certs-temp
+
