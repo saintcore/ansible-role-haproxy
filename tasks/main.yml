@@ -9,6 +9,10 @@
         - "{{ ansible_distribution }}-{{ ansible_distribution_version }}.yml"
         - "{{ ansible_os_family }}-{{ ansible_distribution_major_version }}.yml"
       skip: true
+  tags:
+    - haproxy
+    - haproxy-install
+    - haproxy-cluster
 
 - name: Gather service facts
   ansible.builtin.service_facts: {}
