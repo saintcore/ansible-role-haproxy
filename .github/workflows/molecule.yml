@@ -34,22 +34,28 @@ jobs:
       - name: Debug failed rockylinux-9 instance
         run: |
           echo "--- Converge failed, gathering debug info from rockylinux-9 ---"
+          
+          # Container name confirmed from your local "podman ps" output
+          CONTAINER_NAME="rockylinux-9"
 
-          echo ">>> systemctl status rsyslog.service"
-          molecule login -h rockylinux-9 -c "systemctl status rsyslog.service --no-pager" || true
+          echo ">>> Listing Podman containers"
+          podman ps --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}"
 
-          echo ">>> journalctl -xeu rsyslog.service"
-          molecule login -h rockylinux-9 -c "journalctl -xeu rsyslog.service --no-pager --lines 200" || true
-
-          echo ">>> Check for SELinux status"
-          molecule login -h rockylinux-9 -c "sestatus" || true
-
-          echo ">>> Check for SELinux AVC denials in dmesg"
-          molecule login -h rockylinux-9 -c "dmesg | grep 'SELinux\|avc' | tail -n 50" || true
-
-          echo ">>> Check overall systemd state"
-          molecule login -h rockylinux-9 -c "systemctl --failed --no-pager" || true
-
+          echo ">>> [Debug] systemctl status rsyslog.service"
+          podman exec $CONTAINER_NAME systemctl status rsyslog.service --no-pager || true
+          
+          echo ">>> [Debug] journalctl -xeu rsyslog.service"
+          podman exec $CONTAINER_NAME journalctl -xeu rsyslog.service --no-pager --lines 200 || true
+          
+          echo ">>> [Debug] Check for SELinux status"
+          podman exec $CONTAINER_NAME sestatus || true
+          
+          echo ">>> [Debug] Check for SELinux AVC denials in dmesg (from container's kernel view)"
+          podman exec $CONTAINER_NAME dmesg | grep -i 'SELinux\|avc' | tail -n 50 || true
+          
+          echo ">>> [Debug] Check overall systemd state"
+          podman exec $CONTAINER_NAME systemctl --failed --no-pager || true
+          
           echo "--- End of debug info ---"
 
       - name: Final Converge (to fail build if needed)
