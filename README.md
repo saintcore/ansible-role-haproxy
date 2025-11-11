@@ -1,6 +1,9 @@
 saintcore.haproxy
 =========
 
+[![lint](https://github.com/saintcore/ansible-role-haproxy/actions/workflows/lint.yml/badge.svg)](https://github.com/saintcore/ansible-role-haproxy/actions/workflows/lint.yml)
+[![molecule](https://github.com/saintcore/ansible-role-haproxy/actions/workflows/molecule.yml/badge.svg)](https://github.com/saintcore/ansible-role-haproxy/actions/workflows/molecule.yml)
+
 **Work in progress - do not use yet**
 
 License
