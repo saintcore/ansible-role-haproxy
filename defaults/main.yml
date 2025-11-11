@@ -1,0 +1,14 @@
+---
+# defaults file for haproxy
+haproxy_maps: []
+haproxy_rsyslog: 'etc_rsyslog.haproxy.conf.j2'
+haproxy_config: 'etc_haproxy_haproxy.cfg.j2'
+haproxy_seport_http_custom: []
+
+# cluster
+haproxy_cluster: false
+haproxy_keepalived_config: 'etc_keepalived_keepalived.conf.j2'
+haproxy_keepalived_state:
+haproxy_keepalived_priority:
+haproxy_keepalived_pass:
+haproxy_keepalived_virtualip:

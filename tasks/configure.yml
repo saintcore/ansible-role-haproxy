@@ -1,0 +1,145 @@
+---
+# file: configure.yml
+
+- name: Configure - ensure certs directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/haproxy/certs
+    state: directory
+    group: root
+    owner: root
+    mode: '0600'
+  tags:
+    - haproxy
+    - haproxy-configure
+
+- name: Configure - ensure maps directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/haproxy/maps
+    state: directory
+    group: root
+    owner: root
+    mode: '0600'
+  when: haproxy_maps | length > 0
+  tags:
+    - haproxy
+    - haproxy-configure
+
+- name: Configure - copy maps-files and ensure correct owner and group are set
+  become: true
+  ansible.builtin.template:
+    src: "{{ item.origin }}"
+    dest: '/etc/haproxy/maps/{{ item.name }}'
+    owner: root
+    group: root
+    mode: '0600'
+  with_items:
+    - "{{ haproxy_maps }}"
+  notify:
+    - Reload haproxy
+  when: haproxy_maps | length > 0
+  tags:
+    - haproxy
+    - haproxy-configure
+
+- name: Configure - ensure rsyslog is installed (for HAProxy logging)
+  become: true
+  ansible.builtin.package:
+    name: rsyslog
+    state: present
+  tags:
+    - haproxy
+    - haproxy-configure
+
+- name: Configure - copy  rsyslog haproxy.conf and ensure correct owner and group are set
+  become: true
+  ansible.builtin.template:
+    src: "{{ haproxy_rsyslog }}"
+    dest: '/etc/rsyslog.d/haproxy.conf'
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - Restart rsyslog
+  tags:
+    - haproxy
+    - haproxy-configure
+
+- name: Configure - copy haproxy.cfg and ensure correct owner and group are set
+  become: true
+  ansible.builtin.template:
+    src: "{{ haproxy_config }}"
+    dest: '/etc/haproxy/haproxy.cfg'
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - Reload haproxy
+  tags:
+    - haproxy
+    - haproxy-configure
+
+- name: Configure - ensure logfile exists
+  become: true
+  ansible.builtin.copy:
+    content: ""
+    dest: "{{ item }}"
+    force: false
+    group: "{{ ((ansible_distribution == 'Ubuntu') | ternary('adm', 'root')) }}"
+    owner: "{{ ((ansible_distribution == 'Ubuntu') | ternary('syslog', 'root')) }}"
+    mode: '0640'
+  with_items:
+    - /var/log/haproxy.log
+  notify:
+    - Restart rsyslog
+  tags:
+    - haproxy
+    - haproxy-configure
+
+- name: Configure - ensure haproxy is enabled
+  become: true
+  ansible.builtin.service:
+    name: haproxy
+    enabled: true
+  tags:
+    - haproxy
+    - haproxy-configure
+
+- name: Configure - allow haproxy to listen on defined http ports # 8000: stats-interface, 8899: certbot
+  become: true
+  community.general.seport:
+    ports: "{{ ['8000', '8899'] + (haproxy_seport_http_custom | default([])) }}"
+    proto: tcp
+    setype: http_port_t
+    state: present
+  when: ansible_selinux.status != 'disabled'
+  notify:
+    - Reload haproxy
+  tags:
+    - haproxy
+    - haproxy-configure
+
+- name: Configure - Set AppArmor rules for HAProxy
+  become: true
+  ansible.builtin.template:
+    src: '{{ haproxy_apparmor_config }}'
+    dest: /etc/apparmor.d/local/usr.sbin.haproxy
+    owner: root
+    group: root
+    mode: '0644'
+  when: ansible_apparmor.status == 'enabled'
+  notify:
+    - Reload AppArmor
+  tags:
+    - haproxy
+    - haproxy-configure
+
+- name: Configure - ensure haproxy is started
+  become: true
+  ansible.builtin.systemd_service:
+    name: haproxy
+    state: 'started'
+  tags:
+    - haproxy
+    - haproxy-configure

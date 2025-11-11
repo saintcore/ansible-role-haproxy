@@ -1,0 +1,5 @@
+---
+# vars file for Debian 12 (bookworm)
+haproxy_package_name: haproxy
+haproxy_pin_version: "2.6"
+haproxy_apparmor_config: 'etc_apparmor.d_local_usr.sbin.haproxy.j2'

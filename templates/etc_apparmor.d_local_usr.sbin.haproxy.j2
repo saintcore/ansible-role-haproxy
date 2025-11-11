@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+# Local AppArmor overrides for HAProxy.
+
+# Allow HAProxy to bind to custom ports.
+network bind :8000,
+network bind :8899,
+{% for port in haproxy_seport_http_custom | default([]) %}
+network bind :{{ port }},
+{% endfor %}
+
+# Allow HAProxy to write to its log file.
+/var/log/haproxy.log w,

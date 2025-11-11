@@ -1,0 +1,9 @@
+---
+# file: all.yml
+# Set this to true to run the cluster tasks
+haproxy_cluster: true
+
+# Provide all the necessary keepalived vars
+haproxy_keepalived_state: BACKUP
+haproxy_keepalived_pass: "testing"
+haproxy_keepalived_virtualip: "10.89.0.100"

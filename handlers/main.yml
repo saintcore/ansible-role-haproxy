@@ -1,0 +1,36 @@
+---
+# handlers file for haproxy
+- name: Restart rsyslog
+  become: true
+  ansible.builtin.service:
+    name: rsyslog
+    state: restarted
+  tags: always
+
+- name: Reload haproxy
+  become: true
+  ansible.builtin.systemd:
+    name: haproxy
+    state: reloaded
+  tags: always
+
+- name: Reload AppArmor
+  become: true
+  ansible.builtin.service:
+    name: apparmor
+    state: reloaded
+  tags: always
+
+- name: Reload firewalld
+  become: true
+  ansible.builtin.service:
+    name: firewalld
+    state: reloaded
+  tags: always
+
+- name: Reload keepalived
+  become: true
+  ansible.builtin.service:
+    name: keepalived
+    state: reloaded
+  tags: always
