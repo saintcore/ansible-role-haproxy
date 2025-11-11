@@ -16,22 +16,25 @@
 
 - name: Gather service facts
   ansible.builtin.service_facts: {}
-  tags: always
+  tags:
+    - haproxy
+    - haproxy-install
+    - haproxy-cluster
 
 - name: Install haproxy
-  ansible.builtin.include_tasks: install.yml
+  ansible.builtin.import_tasks: install.yml
   tags:
     - haproxy
     - haproxy-install
 
 - name: Configure haproxy
-  ansible.builtin.include_tasks: configure.yml
+  ansible.builtin.import_tasks: configure.yml
   tags:
     - haproxy
     - haproxy-configure
 
 - name: Configure cluster
-  ansible.builtin.include_tasks: cluster.yml
+  ansible.builtin.import_tasks: cluster.yml
   tags:
     - haproxy
     - haproxy-cluster
