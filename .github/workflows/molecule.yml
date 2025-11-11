@@ -5,11 +5,6 @@ jobs:
   molecule:
     name: molecule
     runs-on: ubuntu-24.04
-    env:
-      PY_COLORS: '1'
-      ANSIBLE_FORCE_COLOR: '1'
-      ANSIBLE_ALLOW_BROKEN_CONDITIONALS: 'True'
-
     steps:
       - name: Check out the codebase
         uses: actions/checkout@v4
@@ -22,51 +17,9 @@ jobs:
       - name: Install Python dependencies
         run: pip3 install ansible-core molecule molecule-podman
 
-      - name: Run Molecule tests (Create)
-        run: molecule create
-
-      # Run converge, but use "|| true" so the workflow doesn't stop
-      - name: Run Molecule tests (Converge)
-        id: converge
-        run: molecule converge || true
-
-      # --- DEBUGGING BLOCK ---
-      - name: Debug failed rockylinux-9 instance
-        run: |
-          echo "--- Converge failed, gathering debug info from rockylinux-9 ---"
-
-          # Container name confirmed from your local "podman ps" output
-          CONTAINER_NAME="rockylinux-9"
-
-          echo ">>> Listing Podman containers"
-          podman ps --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}"
-
-          echo ">>> [Debug] systemctl status rsyslog.service"
-          podman exec $CONTAINER_NAME systemctl status rsyslog.service --no-pager || true
-
-          echo ">>> [Debug] journalctl -xeu rsyslog.service"
-          podman exec $CONTAINER_NAME journalctl -xeu rsyslog.service --no-pager --lines 200 || true
-
-          echo ">>> [Debug] Check for SELinux status"
-          podman exec $CONTAINER_NAME sestatus || true
-
-          echo ">>> [Debug] Check for SELinux AVC denials in dmesg (from container's kernel view)"
-          podman exec $CONTAINER_NAME dmesg | grep -i 'SELinux\|avc' | tail -n 50 || true
-
-          echo ">>> [Debug] Check overall systemd state"
-          podman exec $CONTAINER_NAME systemctl --failed --no-pager || true
-
-          echo "--- End of debug info ---"
-
-      - name: Final Converge (to fail build if needed)
-        run: molecule converge
-
-      - name: Run Molecule tests (Idempotence)
-        run: molecule idempotence
-
-      - name: Run Molecule tests (Verify)
-        run: molecule verify
-
-      - name: Run Molecule tests (Destroy)
-        if: always() # Always run destroy, even if steps failed
-        run: molecule destroy
+      - name: Run Molecule tests
+        run: molecule test -s ci
+        env:
+          PY_COLORS: '1'
+          ANSIBLE_FORCE_COLOR: '1'
+          ANSIBLE_ALLOW_BROKEN_CONDITIONALS: 'True'
