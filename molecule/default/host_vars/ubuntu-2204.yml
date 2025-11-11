@@ -1,0 +1,3 @@
+---
+# file: ubuntu-2204.yml
+haproxy_keepalived_priority: 90

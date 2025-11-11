@@ -1,0 +1,388 @@
+---
+# Purpose: assert that the instance really ended up in the expected state.
+# Molecule calls this playbook with `molecule verify`.
+- name: Verify
+  hosts: all
+  gather_facts: true
+
+  tasks:
+    - name: Include OS/Version-specific variables
+      ansible.builtin.include_vars: "{{ item }}"
+      with_first_found:
+        - files:
+            - "{{ ansible_distribution }}-{{ ansible_distribution_version }}.yml"
+            - "{{ ansible_os_family }}-{{ ansible_distribution_major_version }}.yml"
+          paths:
+            - ../../vars # Necessary to find files from molecule/default/
+          skip: true
+
+    - name: Get list of installed packages
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Verify | Gather service facts
+      ansible.builtin.service_facts: {}
+
+    - name: Assert correct haproxy major version is installed
+      ansible.builtin.assert:
+        that:
+          - "'haproxy' in ansible_facts.packages"
+          - >
+            ansible_facts.packages.haproxy[0].version is version(
+              haproxy_pin_version,
+              '>='
+            )
+          - >
+            ansible_facts.packages.haproxy[0].version is version(
+              (haproxy_pin_version.split('.')[0] | int) ~ '.' ~ (haproxy_pin_version.split('.')[1] | int + 1),
+              '<'
+            )
+
+        fail_msg: >
+          HAProxy package version check failed!
+          OS Family: {{ ansible_os_family }}, Dist: {{ ansible_distribution }}, Ver: {{ ansible_distribution_version }}.
+          Installed: {{ ansible_facts.packages.haproxy[0].version | default('Not Found') }}
+          Expected Prefix: {{ haproxy_pin_version }}.*
+        quiet: false
+
+    - name: Verify | Get stats for /etc/haproxy/certs directory
+      ansible.builtin.stat:
+        path: /etc/haproxy/certs
+      register: p_certs_dir
+
+    - name: Verify | Assert /etc/haproxy/certs directory state
+      ansible.builtin.assert:
+        that:
+          - p_certs_dir.stat.exists
+          - p_certs_dir.stat.isdir
+          - p_certs_dir.stat.pw_name == 'root'
+          - p_certs_dir.stat.gr_name == 'root'
+          - p_certs_dir.stat.mode == '0600'
+        fail_msg: "Certs directory (/etc/haproxy/certs) is not in the correct state."
+        quiet: true
+
+    - name: Verify | Get stats for /etc/haproxy/maps directory
+      ansible.builtin.stat:
+        path: /etc/haproxy/maps
+      register: p_maps_dir
+
+    - name: Verify | Assert /etc/haproxy/maps directory state
+      ansible.builtin.assert:
+        that:
+          - p_maps_dir.stat.exists
+          - p_maps_dir.stat.isdir
+          - p_maps_dir.stat.pw_name == 'root'
+          - p_maps_dir.stat.gr_name == 'root'
+          - p_maps_dir.stat.mode == '0600'
+        fail_msg: "Maps directory (/etc/haproxy/maps) is not in the correct state."
+        quiet: true
+      when: haproxy_maps | default([]) | length > 0
+
+    - name: Verify | Get stats for map files
+      ansible.builtin.stat:
+        path: "/etc/haproxy/maps/{{ item.name }}"
+      register: p_map_files
+      loop: "{{ haproxy_maps | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: haproxy_maps | default([]) | length > 0
+
+    - name: Verify | Assert map files exist
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.isreg
+        fail_msg: "Map file '{{ item.item.name }}' does not exist or is not a file."
+        quiet: true
+      loop: "{{ p_map_files.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      when: haproxy_maps | default([]) | length > 0
+
+    - name: Verify | Assert map files permissions
+      ansible.builtin.assert:
+        that:
+          - item.stat.pw_name == 'root'
+          - item.stat.gr_name == 'root'
+          - item.stat.mode == '0600'
+        fail_msg: "Map file '{{ item.item.name }}' has incorrect permissions."
+        quiet: true
+      loop: "{{ p_map_files.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      when:
+        - haproxy_maps | default([]) | length > 0
+        - item.stat.exists
+
+    - name: Verify | Assert rsyslog package is installed
+      ansible.builtin.assert:
+        that:
+          - "'rsyslog' in ansible_facts.packages"
+        fail_msg: "The 'rsyslog' package was not found, but it should have been installed."
+        quiet: true
+
+    - name: Verify | Get stats for rsyslog haproxy.conf
+      ansible.builtin.stat:
+        path: /etc/rsyslog.d/haproxy.conf
+      register: p_rsyslog_conf
+
+    - name: Verify | Assert rsyslog haproxy.conf state
+      ansible.builtin.assert:
+        that:
+          - p_rsyslog_conf.stat.exists
+          - p_rsyslog_conf.stat.isreg
+          - p_rsyslog_conf.stat.pw_name == 'root'
+          - p_rsyslog_conf.stat.gr_name == 'root'
+          - p_rsyslog_conf.stat.mode == '0644'
+        fail_msg: "rsyslog config (/etc/rsyslog.d/haproxy.conf) is not in the correct state."
+        quiet: true
+
+    - name: Verify | Assert rsyslog service is enabled on boot
+      ansible.builtin.assert:
+        that:
+          - "'rsyslog.service' in ansible_facts.services"
+          - ansible_facts.services['rsyslog.service'].status == 'enabled'
+        fail_msg: "The 'rsyslog.service' is not enabled to start on boot."
+        quiet: true
+
+    - name: Verify | Assert rsyslog service is running
+      ansible.builtin.assert:
+        that:
+          - "'rsyslog.service' in ansible_facts.services"
+          - ansible_facts.services['rsyslog.service'].state == 'running'
+        fail_msg: "The 'rsyslog.service' is not in a 'running' state."
+        quiet: true
+
+    - name: Verify | Get stats for /etc/haproxy/haproxy.cfg
+      ansible.builtin.stat:
+        path: /etc/haproxy/haproxy.cfg
+      register: p_haproxy_cfg
+
+    - name: Verify | Assert /etc/haproxy/haproxy.cfg state
+      ansible.builtin.assert:
+        that:
+          - p_haproxy_cfg.stat.exists
+          - p_haproxy_cfg.stat.isreg
+          - p_haproxy_cfg.stat.pw_name == 'root'
+          - p_haproxy_cfg.stat.gr_name == 'root'
+          - p_haproxy_cfg.stat.mode == '0644'
+        fail_msg: "Main config file (/etc/haproxy/haproxy.cfg) is not in the correct state."
+        quiet: true
+
+    - name: Verify | Get stats for /var/log/haproxy.log
+      ansible.builtin.stat:
+        path: /var/log/haproxy.log
+      register: p_haproxy_log
+
+    - name: Verify | Assert /var/log/haproxy.log state
+      ansible.builtin.assert:
+        that:
+          - p_haproxy_log.stat.exists
+          - p_haproxy_log.stat.isreg
+          - p_haproxy_log.stat.mode == '0640'
+          - p_haproxy_log.stat.pw_name == ((ansible_distribution == 'Ubuntu') | ternary('syslog', 'root'))
+          - p_haproxy_log.stat.gr_name == ((ansible_distribution == 'Ubuntu') | ternary('adm', 'root'))
+        fail_msg: >-
+          HAProxy log file (/var/log/haproxy.log) is not in the correct state.
+          Owner: {{ p_haproxy_log.stat.pw_name }}
+          Group: {{ p_haproxy_log.stat.gr_name }}
+          Mode: {{ p_haproxy_log.stat.mode }}
+        quiet: true
+
+    - name: Verify | Get SELinux http_port_t policy
+      ansible.builtin.command: semanage port -l
+      register: semanage_ports_raw
+      when: ansible_selinux.status != 'disabled'
+      changed_when: false
+      check_mode: false
+
+    - name: Verify | Extract http_port_t line from policy
+      ansible.builtin.set_fact:
+        http_port_line: "{{ semanage_ports_raw.stdout_lines | select('match', '^http_port_t') | first | default('') }}"
+      when: ansible_selinux.status != 'disabled'
+
+    - name: Verify | Assert HAProxy SELinux ports are set
+      ansible.builtin.assert:
+        that:
+          - " '{{ item }}' in http_port_line "
+        loop: "{{ ['8000', '8899'] + (haproxy_seport_http_custom | default([])) }}"
+        loop_control:
+          label: "port {{ item }}"
+        fail_msg: "Port {{ item }} was not found in the http_port_t policy line: '{{ http_port_line }}'"
+        quiet: true
+      when: ansible_selinux.status != 'disabled'
+
+    - name: Verify | Assert AppArmor service is enabled and running
+      ansible.builtin.assert:
+        that:
+          - "'apparmor.service' in ansible_facts.services"
+          - ansible_facts.services['apparmor.service'].status == 'enabled'
+          - ansible_facts.services['apparmor.service'].state == 'running'
+        fail_msg: "The 'apparmor.service' is not running or not enabled."
+        quiet: true
+      when: ansible_apparmor.status == 'enabled'
+
+    - name: Verify | Get stats for AppArmor local override
+      ansible.builtin.stat:
+        path: /etc/apparmor.d/local/usr.sbin.haproxy
+      register: p_apparmor_override
+      when: ansible_apparmor.status == 'enabled'
+
+    - name: Verify | Assert AppArmor override file state
+      ansible.builtin.assert:
+        that:
+          - p_apparmor_override.stat.exists
+          - p_apparmor_override.stat.isreg
+          - p_apparmor_override.stat.pw_name == 'root'
+          - p_apparmor_override.stat.gr_name == 'root'
+          - p_apparmor_override.stat.mode == '0644'
+        fail_msg: "AppArmor override file (/etc/aainpparmor.d/local/usr.sbin.haproxy) is not in the correct state."
+        quiet: true
+      when: ansible_apparmor.status == 'enabled'
+
+    - name: Verify | Slurp AppArmor override file content
+      ansible.builtin.slurp:
+        src: /etc/apparmor.d/local/usr.sbin.haproxy
+      register: p_apparmor_content
+      when: ansible_apparmor.status == 'enabled'
+
+    - name: Verify | Assert AppArmor override contains port rules
+      ansible.builtin.assert:
+        that:
+          - "('network bind :' ~ item ~ ',') in (p_apparmor_content.content | b64decode)"
+        loop: "{{ ['8000', '8899'] + (haproxy_seport_http_custom | default([])) }}"
+        loop_control:
+          label: "port {{ item }}"
+        fail_msg: "Rule for port {{ item }} was not found in the AppArmor override file."
+        quiet: true
+      when: ansible_apparmor.status == 'enabled'
+
+    - name: Verify | Assert AppArmor override contains log rule
+      ansible.builtin.assert:
+        that:
+          - "'/var/log/haproxy.log w,' in (p_apparmor_content.content | b64decode)"
+        fail_msg: "Log file rule '/var/log/haproxy.log w,' was not found in the AppArmor override file."
+        quiet: true
+      when: ansible_apparmor.status == 'enabled'
+
+    - name: Verify | Manually check haproxy config for errors and warnings
+      ansible.builtin.command:
+        cmd: haproxy -c -f /etc/haproxy/haproxy.cfg
+      register: haproxy_config_check
+      changed_when: false
+      failed_when: >
+        haproxy_config_check.rc != 0 or
+        haproxy_config_check.stdout.strip() != 'Configuration file is valid' or
+        haproxy_config_check.stderr.strip() != ''
+
+    - name: Verify | Assert haproxy service is enabled on boot
+      ansible.builtin.assert:
+        that:
+          - "'haproxy.service' in ansible_facts.services"
+          - ansible_facts.services['haproxy.service'].status == 'enabled'
+        fail_msg: "The 'haproxy.service' is not enabled to start on boot."
+        quiet: true
+
+    - name: Verify | Assert haproxy service is running
+      ansible.builtin.assert:
+        that:
+          - "'haproxy.service' in ansible_facts.services"
+          - ansible_facts.services['haproxy.service'].state == 'running'
+        fail_msg: "The 'haproxy.service' is not in a 'running' state."
+        quiet: true
+
+    - name: Verify | Assert HAProxy stats port (8000) is responding
+      ansible.builtin.uri:
+        url: http://localhost:8000/haproxy_stats
+        user: haproxystats
+        password: ThisShouldBeChanged
+        force_basic_auth: true
+        status_code: 200
+        return_content: true
+      register: stats_page
+
+    - name: Verify | Assert stats page content is correct
+      ansible.builtin.assert:
+        that:
+          - "'<title>Statistics Report for HAProxy</title>' in stats_page.content"
+        fail_msg: "The stats page did not return the expected '<title>Statistics Report for HAProxy</title>' content."
+        quiet: true
+
+    - name: Verify | Make test request to HAProxy (expect 400)
+      ansible.builtin.uri:
+        url: http://localhost/
+        status_code: 400
+
+    - name: Verify | Check for the 400 log entry in /var/log/haproxy.log
+      ansible.builtin.command:
+        cmd: grep 'http_in no-match.* 400 206 .* "GET / HTTP/1.1"' /var/log/haproxy.log
+      changed_when: false
+
+    - name: Verify | Assert keepalived package is installed
+      ansible.builtin.assert:
+        that:
+          - "'keepalived' in ansible_facts.packages"
+        fail_msg: "The 'keepalived' package was not found, but haproxy_cluster is true."
+        quiet: true
+      when: haproxy_cluster | default(false)
+
+    - name: Verify | Assert firewalld permanent rule for vrrp is set
+      ansible.builtin.command:
+        cmd: "firewall-cmd --permanent --zone=drop --query-protocol=vrrp"
+      changed_when: false
+      when:
+        - haproxy_cluster | default(false)
+        - "'firewalld.service' in ansible_facts.services"
+
+    - name: Verify | Assert firewalld active rule for vrrp is set
+      ansible.builtin.command:
+        cmd: "firewall-cmd --zone=drop --query-protocol=vrrp"
+      changed_when: false
+      when:
+        - haproxy_cluster | default(false)
+        - "'firewalld.service' in ansible_facts.services"
+
+    - name: Verify | Get stats for /etc/keepalived/keepalived.conf
+      ansible.builtin.stat:
+        path: /etc/keepalived/keepalived.conf
+      register: p_keepalived_conf
+      when: haproxy_cluster | default(false)
+
+    - name: Verify | Assert /etc/keepalived/keepalived.conf state
+      ansible.builtin.assert:
+        that:
+          - p_keepalived_conf.stat.exists
+          - p_keepalived_conf.stat.isreg
+          - p_keepalived_conf.stat.pw_name == 'root'
+          - p_keepalived_conf.stat.gr_name == 'root'
+          - p_keepalived_conf.stat.mode == '0644'
+        fail_msg: "Keepalived config (/etc/keepalived/keepalived.conf) is not in the correct state."
+        quiet: true
+      when: haproxy_cluster | default(false)
+
+    - name: Verify | Assert keepalived service is enabled on boot
+      ansible.builtin.assert:
+        that:
+          - "'keepalived.service' in ansible_facts.services"
+          - ansible_facts.services['keepalived.service'].status == 'enabled'
+        fail_msg: "The 'keepalived.service' is not enabled to start on boot."
+        quiet: true
+      when: haproxy_cluster | default(false)
+
+    - name: Verify | Assert keepalived service is running
+      ansible.builtin.assert:
+        that:
+          - "'keepalived.service' in ansible_facts.services"
+          - ansible_facts.services['keepalived.service'].state == 'running'
+        fail_msg: "The 'keepalived.service' is not in a 'running' state."
+        quiet: true
+      when: haproxy_cluster | default(false)
+
+    - name: Verify | Assert psmisc (for killall) is installed (Debian-family)
+      ansible.builtin.assert:
+        that:
+          - "'psmisc' in ansible_facts.packages"
+        fail_msg: "The 'psmisc' package was not found, but is required for 'killall'."
+        quiet: true
+      when:
+        - haproxy_cluster | default(false)

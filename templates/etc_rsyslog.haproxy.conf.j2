@@ -1,0 +1,7 @@
+# {{ ansible_managed }}
+#Rsyslog configuration to listen on localhost for HAProxy log messages
+#and write them to /var/log/haproxy.log
+$ModLoad imudp
+$UDPServerAddress 127.0.0.1
+$UDPServerRun 514
+local0.* -/var/log/haproxy.log

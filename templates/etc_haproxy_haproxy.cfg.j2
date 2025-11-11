@@ -1,0 +1,80 @@
+# {{ ansible_managed }}
+# optimized for HAProxy version 2.4.X LTS based on https://www.haproxy.org/download/2.4/doc/configuration.txt
+#
+#---------------------------------------------------------------------
+# Global settings
+#---------------------------------------------------------------------
+global
+    log         127.0.0.1 local0
+
+    chroot      /var/lib/haproxy
+    pidfile     /var/run/haproxy.pid
+    stats       timeout 30s
+    maxconn     4000
+    user        haproxy
+    group       haproxy
+    daemon
+
+    # turn on stats unix socket
+    stats socket /var/lib/haproxy/stats mode 660 level admin expose-fd listeners
+
+    # utilize system-wide crypto-policies
+    ssl-default-bind-ciphers PROFILE=SYSTEM
+    ssl-default-server-ciphers PROFILE=SYSTEM
+
+    # run haproxy with multithread support. the number should match the output from 'nproc' aka your actual cores including hyper-threading
+    nbthread 4
+
+#---------------------------------------------------------------------
+# common defaults that all the 'listen' and 'backend' sections will
+# use if not designated in their block
+#---------------------------------------------------------------------
+defaults
+    mode                    http
+    retries                 0
+    timeout http-request    10s
+    timeout queue           1m
+    timeout connect         10s
+    timeout client          1m
+    timeout server          1m
+    timeout http-keep-alive 10s
+    timeout check           10s
+    maxconn                 3000
+    balance                 roundrobin
+    log                     global
+    option                  forwardfor
+
+#---------------------------------------------------------------------
+# listen for ha stats - will be used by kibana/elasticsearch
+#---------------------------------------------------------------------
+listen stats # Define a listen section called "stats"
+  bind localhost:8000 # Listen on port 8000
+  stats enable  # Enable stats page
+  stats hide-version  # Hide HAProxy version
+  stats realm Haproxy\ Statistics  # Title text for popup window
+  stats uri /haproxy_stats  # Stats URI
+  stats auth haproxystats:ThisShouldBeChanged  # Authentication credentials
+
+
+#---------------------------------------------------------------------
+# Frontends
+#---------------------------------------------------------------------
+
+frontend http_in
+    bind            *:80
+    mode            http
+    option          httplog
+    option          http-keep-alive
+    timeout client 30s
+
+    default_backend no-match
+
+#---------------------------------------------------------------------
+# Backends
+#---------------------------------------------------------------------
+
+#---------------------------------------------------------------------
+# backend no-match, default
+#---------------------------------------------------------------------
+backend no-match
+  http-request  deny deny_status 400

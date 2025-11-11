@@ -1,0 +1,4 @@
+---
+# vars file for RedHat family EL9 (RHEL 9, Rocky 9, etc.)
+haproxy_package_name: haproxy
+haproxy_pin_version: "2.4"

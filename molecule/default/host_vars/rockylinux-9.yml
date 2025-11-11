@@ -1,0 +1,4 @@
+---
+# file: rockylinux-9-yml
+haproxy_keepalived_state: MASTER
+haproxy_keepalived_priority: 110

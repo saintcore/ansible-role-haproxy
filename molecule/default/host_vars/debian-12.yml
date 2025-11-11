@@ -1,0 +1,3 @@
+---
+# file: debian-12.yml
+haproxy_keepalived_priority: 100

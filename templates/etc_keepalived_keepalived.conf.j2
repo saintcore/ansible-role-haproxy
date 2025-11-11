@@ -1,0 +1,32 @@
+# {{ ansible_managed }}
+
+global_defs {
+   # Fix for Debian/Ubuntu: allow scripts and run as root
+   enable_script_security
+   script_user root
+}
+
+vrrp_script chk_haproxy {
+    script "/usr/bin/killall -0 haproxy"
+    interval 2
+    weight 50
+}
+
+vrrp_instance VI_1 {
+    # NO 'vrrp_version' keyword - defaults to v2
+    state {{ haproxy_keepalived_state }}
+    interface {{ ansible_default_ipv4.interface }}
+    virtual_router_id 51
+    priority {{ haproxy_keepalived_priority }}
+    advert_int 1
+    authentication {
+        auth_type PASS  # Must use PASS for v2 compatibility
+        auth_pass {{ haproxy_keepalived_pass }}
+    }
+    virtual_ipaddress {
+        {{ haproxy_keepalived_virtualip }}
+    }
+    track_script {
+        chk_haproxy
+    }
+}

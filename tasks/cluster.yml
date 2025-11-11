@@ -1,0 +1,40 @@
+---
+# file: cluster.yml
+- name: Cluster -  configure haproxy cluster with keepalived
+  become: true
+  when: haproxy_cluster | default(false)
+  tags:
+    - haproxy
+    - haproxy-cluster
+  block:
+    - name: Install - ensure keepalived and dependencies are installed # psmic is for killall within keepalived check script
+      become: true
+      ansible.builtin.package:
+        name:
+          - keepalived
+          - psmisc
+        state: present
+
+    - name: Cluster - permit vrrp (ip protocol 112) traffic through firewalld
+      ansible.posix.firewalld:
+        protocol: vrrp  # <-- ONLY vrrp
+        permanent: true
+        state: enabled
+        zone: drop
+      when: "'firewalld.service' in ansible_facts.services"
+      notify: Reload firewalld
+
+    - name: Cluster - copy keepalived.cfg and ensure correct owner and group are set
+      ansible.builtin.template:
+        src: "{{ haproxy_keepalived_config }}"
+        dest: '/etc/keepalived/keepalived.conf'
+        owner: root
+        group: root
+        mode: '0644'
+      notify:
+        - Reload keepalived
+
+    - name: Cluster - ensure keepalived service is enabled
+      ansible.builtin.service:
+        name: keepalived
+        enabled: true
