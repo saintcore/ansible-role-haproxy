@@ -208,13 +208,13 @@
 
 - name: Coraza - install selinux policy
   become: true
-  ansible.builtin.dnf: 
+  ansible.builtin.dnf:
     name: https://github.com/saintcore/selinux-coraza-spoa/releases/download/{{ haproxy_coraza_selinux_v }}/coraza_spoa_selinux-1.1.1-1.el9.noarch.rpm
     disable_gpg_check: true
     state: present
   when: haproxy_coraza_selinux
 
-- name: Coraza- add port to selinux 
+- name: Coraza- add port to selinux
   become: true
   community.general.seport:
     ports: "{{ (haproxy_coraza_port | default([])) }}"

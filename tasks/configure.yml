@@ -67,7 +67,7 @@
   ansible.builtin.service:
     name: rsyslog
     state: restarted
-  when: haproxy_rsyslog_conf_status.changed
+  when: haproxy_rsyslog_conf_status.changed # noqa: no-handler
 
 - name: Copy haproxy.cfg and ensure correct owner and group are set
   become: true

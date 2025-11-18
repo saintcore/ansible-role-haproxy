@@ -20,7 +20,7 @@ haproxy_coraza_selinux: false
 haproxy_coraza_selinux_v:
 haproxy_coraza_version: 'main'
 haproxy_coraza_crs_version: 'main'
-haproxy_coraza_port: 
+haproxy_coraza_port:
 haproxy_coraza_sitesconfigdirs: []
 haproxy_coraza_sitesconfigfiles: []
 haproxy_coraza_configyaml: 'coraza/etc_coraza-spoa_config.yaml.j2'
