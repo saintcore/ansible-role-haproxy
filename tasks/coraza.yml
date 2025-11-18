@@ -1,0 +1,239 @@
+---
+- name: Coraza - ensure required packages for build are installed
+  become: true
+  ansible.builtin.package:
+    name:
+      - golang
+      - pkg-config
+      - make
+      - gcc
+      - git
+    state: installed
+
+- name: Coraza - install mage build tool
+  become: true
+  ansible.builtin.command:
+    cmd: go install github.com/magefile/mage@latest
+  # Ensure root's Go bin is in path or call directly later
+  changed_when: true
+  environment:
+    GOPATH: "/root/go"
+  tags:
+    - molecule-idempotence-notest
+
+- name: Coraza - clone git repo
+  become: true
+  ansible.builtin.git:
+    repo: https://github.com/corazawaf/coraza-spoa.git
+    dest: "{{ ansible_user_dir }}/coraza"
+    version: "{{ haproxy_coraza_version }}"
+    update: true # ensure tags are also updated
+    force: true
+  register: haproxy_coraza_clone
+
+- name: Coraza - run build
+  become: true
+  ansible.builtin.command:
+    cmd: /root/go/bin/mage build
+    chdir: "{{ ansible_user_dir }}/coraza"
+  changed_when: true
+  when: haproxy_coraza_clone.changed # noqa: no-handler
+
+- name: Coraza - copy exec
+  become: true
+  ansible.builtin.copy:
+    src: "{{ ansible_user_dir }}/coraza/build/coraza-spoa"
+    dest: /usr/sbin/coraza-spoa
+    remote_src: true
+    mode: '0755'
+  when: haproxy_coraza_clone.changed # noqa: no-handler
+
+- name: Coraza - add group
+  become: true
+  ansible.builtin.group:
+    name: coraza
+    state: present
+
+- name: Coraza - adding user and group
+  become: true
+  ansible.builtin.user:
+    name: coraza
+    shell: /sbin/nologin
+    system: true
+    groups: coraza
+
+- name: Coraza - ensure root dir exists
+  become: true
+  ansible.builtin.file:
+    state: directory
+    path: /etc/coraza-spoa
+    group: coraza
+    owner: coraza
+    mode: '0700'
+
+- name: Coraza - ensure sites dir exists
+  become: true
+  ansible.builtin.file:
+    state: directory
+    path: /etc/coraza-spoa/sites
+    group: coraza
+    owner: coraza
+    mode: '0700'
+
+- name: Coraza - ensure sites subdirs exists
+  become: true
+  ansible.builtin.file:
+    state: directory
+    path: "{{ item }}"
+    group: coraza
+    owner: coraza
+    mode: '0700'
+  with_items: "{{ haproxy_coraza_sitesconfigdirs }}"
+  when: haproxy_coraza_sitesconfigdirs | length != 0
+
+- name: Coraza - ensure log dirs exist
+  become: true
+  ansible.builtin.file:
+    state: directory
+    path: /var/log/coraza-spoa
+    group: coraza
+    owner: coraza
+    mode: '0750'
+
+- name: Coraza - ensure log files exist
+  become: true
+  ansible.builtin.lineinfile:
+    state: present
+    path: /var/log/coraza-spoa/coraza-agent.log
+    line: ''
+    create: true
+    group: coraza
+    owner: coraza
+    mode: '0660'
+
+- name: Coraza - copy coraza-spoa_config.yaml and ensure correct owner and group are set
+  become: true
+  ansible.builtin.template:
+    src: "{{ haproxy_coraza_configyaml }}"
+    dest: '/etc/coraza-spoa/config.yaml'
+    owner: coraza
+    group: coraza
+    mode: '0600'
+  notify: Restart coraza
+
+- name: Coraza - copy coraza.conf and ensure correct owner and group are set
+  become: true
+  ansible.builtin.template:
+    src: "{{ haproxy_coraza_conf }}"
+    dest: '/etc/coraza-spoa/coraza.conf'
+    owner: coraza
+    group: coraza
+    mode: '0600'
+  notify: Restart coraza
+
+- name: Coraza - copy coraza.cfg for haproxy-config and ensure correct owner and group are set
+  become: true
+  ansible.builtin.template:
+    src: "{{ haproxy_coraza_spoaconf }}"
+    dest: '/etc/haproxy/coraza.cfg'
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload haproxy
+
+- name: Coraza - clone git repo with owasp core rule set
+  ansible.builtin.git:
+    repo: https://github.com/coreruleset/coreruleset.git
+    dest: "{{ ansible_user_dir }}/coreruleset"
+    single_branch: true
+    version: "{{ haproxy_coraza_crs_version }}"
+    update: true # ensure tags are also updated
+    force: true
+
+- name: Coraza - copy owasp crs-setup file
+  become: true
+  ansible.builtin.template:
+    src: "{{ haproxy_coraza_owasp_csrconf }}"
+    dest: '/etc/coraza-spoa/crs-setup.conf'
+    owner: coraza
+    group: coraza
+    mode: '0600'
+  notify: Restart coraza
+
+- name: Coraza - copy owasp rules
+  become: true
+  ansible.builtin.copy:
+    src: "{{ ansible_user_dir }}/coreruleset/rules"
+    dest: //etc/coraza-spoa
+    owner: coraza
+    group: coraza
+    mode: '0700'
+    remote_src: true
+  notify: Restart coraza
+
+- name: Coraza - copy owasp plugins
+  become: true
+  ansible.builtin.copy:
+    src: "{{ ansible_user_dir }}/coreruleset/plugins"
+    dest: //etc/coraza-spoa
+    owner: coraza
+    group: coraza
+    mode: '0700'
+    remote_src: true
+
+- name: Coraza - copy provided plugin configs
+  become: true
+  ansible.builtin.template:
+    src: "{{ item.origin }}"
+    dest: "{{ item.path }}"
+    owner: coraza
+    group: coraza
+    mode: '0600'
+  when: haproxy_coraza_sitesconfigfiles | length != 0
+  with_items:
+    - "{{ haproxy_coraza_sitesconfigfiles }}"
+  notify: Restart coraza
+
+- name: Coraza - systemd config for coraza
+  become: true
+  ansible.builtin.template:
+    src: "{{ haproxy_coraza_systemd }}"
+    dest: '/etc/systemd/system/coraza-spoa.service'
+    owner: root
+    group: root
+    mode: '0640'
+  notify:
+    - Reload daemon-coraza
+    - Restart coraza
+
+- name: Coraza - install selinux policy
+  become: true
+  ansible.builtin.dnf: 
+    name: https://github.com/saintcore/selinux-coraza-spoa/releases/download/{{ haproxy_coraza_selinux_v }}/coraza_spoa_selinux-1.1.1-1.el9.noarch.rpm
+    disable_gpg_check: true
+    state: present
+  when: haproxy_coraza_selinux
+
+- name: Coraza- add port to selinux 
+  become: true
+  community.general.seport:
+    ports: "{{ (haproxy_coraza_port | default([])) }}"
+    proto: tcp
+    setype: coraza_spoa_port_t
+    state: present
+  when: ansible_selinux.status != 'disabled'
+  notify:
+    - Restart coraza
+
+- name: Ensure haproxy is started
+  become: true
+  ansible.builtin.systemd_service:
+    name: haproxy
+    state: 'started'
+
+- name: Coraza - enable service
+  become: true
+  ansible.builtin.systemd_service:
+    name: coraza-spoa
+    enabled: true
+  notify: Restart coraza

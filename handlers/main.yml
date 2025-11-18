@@ -34,3 +34,18 @@
     name: keepalived
     state: reloaded
   tags: always
+
+- name: Reload daemon-coraza
+  become: true
+  ansible.builtin.service:
+    name: "coraza-spoa"
+    state: "restarted"
+    daemon_reload: true
+  tags: always
+
+- name: Restart coraza
+  become: true
+  ansible.builtin.service:
+    name: "coraza-spoa"
+    state: "restarted"
+  tags: always

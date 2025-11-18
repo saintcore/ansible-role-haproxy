@@ -1,7 +1,5 @@
 ---
 # tasks file for haproxy
-
-# Variable setup using first found strategy
 - name: Include OS/Version-specific variables
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
@@ -38,3 +36,10 @@
   tags:
     - haproxy
     - haproxy-cluster
+
+- name: Build and configure coraza-spoa
+  ansible.builtin.import_tasks: coraza.yml
+  when: ansible_os_family == 'RedHat' and haproxy_coraza
+  tags:
+    - haproxy
+    - haproxy-coraza

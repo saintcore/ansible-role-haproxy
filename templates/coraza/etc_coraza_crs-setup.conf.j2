@@ -1,0 +1,232 @@
+# {{ ansible_managed }}
+# ------------------------------------------------------------------------
+# OWASP CRS ver.4.20.0
+# crs-setup.conf for use with haproxy and coraza-spoa
+# based on: https://github.com/coreruleset/coreruleset/blob/v4.20.0/crs-setup.conf.example
+# ------------------------------------------------------------------------
+# Copyright (c) 2006-2020 Trustwave and contributors. All rights reserved.
+# Copyright (c) 2021-2025 CRS project. All rights reserved.
+# The OWASP CRS is distributed under Apache Software License (ASL) version 2
+#
+# See also:
+# https://coreruleset.org/
+# https://github.com/coreruleset/coreruleset
+# https://owasp.org/www-project-modsecurity-core-rule-set/
+#
+# The order of file inclusion in your configuration should always be:
+# 1. crs-setup.conf (this file)
+# 2. rules/*.conf (the CRS rule files)
+#-------------------------------------------------------------------------------
+#
+# -- [[ Begin of setup ]] ------------------------------------------------------
+#
+# -- [[ Mode of Operation: Anomaly Scoring vs. Self-Contained ]] ---------------
+#
+SecDefaultAction "phase:1,log,auditlog,pass"
+SecDefaultAction "phase:2,log,auditlog,pass"
+#
+# -- [[ Paranoia Level Initialization ]] ---------------------------------------
+
+SecAction \
+    "id:900000,\
+    phase:1,\
+    pass,\
+    t:none,\
+    nolog,\
+    tag:'OWASP_CRS',\
+    ver:'OWASP_CRS/4.20.0',\
+    setvar:tx.blocking_paranoia_level=2"
+
+# It is possible to execute rules from a higher paranoia level but not include
+# them in the anomaly scoring. This allows you to take a well-tuned system on
+# paranoia level 1 and add rules from paranoia level 2 without having to fear
+# the new rules would lead to false positives that raise your score above the
+# threshold.
+# This optional feature is enabled by uncommenting the following rule and
+# setting the tx.detection_paranoia_level.
+# Technically, rules up to the level defined in tx.detection_paranoia_level
+# will be executed, but only the rules up to tx.blocking_paranoia_level affect the
+# anomaly scores.
+# By default, tx.detection_paranoia_level is set to tx.blocking_paranoia_level.
+# tx.detection_paranoia_level must not be lower than tx.blocking_paranoia_level.
+#
+# Please notice that setting tx.detection_paranoia_level to a higher paranoia
+# level results in a performance impact that is equally high as setting
+# tx.blocking_paranoia_level to said level.
+#
+#SecAction \
+#    "id:900001,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.20.0',\
+#    setvar:tx.detection_paranoia_level=1"
+#
+# -- [[ Enforce Body Processor URLENCODED ]] -----------------------------------
+#
+# ModSecurity selects the body processor based on the Content-Type request
+# header. But clients are not always setting the Content-Type header for their
+# request body payloads. This will leave ModSecurity with limited vision into
+# the payload.  The variable tx.enforce_bodyproc_urlencoded lets you force the
+# URLENCODED body processor in these situations. This is off by default, as it
+# implies a change of the behaviour of ModSecurity beyond CRS (the body
+# processor applies to all rules, not only CRS) and because it may lead to
+# false positives already on paranoia level 1. However, enabling this variable
+# closes a possible bypass of CRS so it should be considered.
+#
+# changed: enabled
+#
+SecAction \
+    "id:900010,\
+    phase:1,\
+    pass,\
+    t:none,\
+    nolog,\
+    tag:'OWASP_CRS',\
+    ver:'OWASP_CRS/4.20.0',\
+    setvar:tx.enforce_bodyproc_urlencoded=1"
+
+#
+# -- [[ Anomaly Score Reporting Level ]] ---------------------------------------
+#
+SecAction \
+    "id:900115,\
+    phase:1,\
+    pass,\
+    t:none,\
+    nolog,\
+    tag:'OWASP_CRS',\
+    ver:'OWASP_CRS/4.20.0',\
+    setvar:tx.reporting_level=4"
+
+
+#
+# -- [[ Early Anomaly Scoring Mode Blocking ]] ------------------------------
+#
+SecAction \
+    "id:900120,\
+    phase:1,\
+    pass,\
+    t:none,\
+    nolog,\
+    tag:'OWASP_CRS',\
+    ver:'OWASP_CRS/4.20.0',\
+    setvar:tx.early_blocking=1"
+
+#
+# -- [[ Initialize Default Collections ]] -----------------------------------
+#
+# CRS provides a centralized option to initialize and populate collections
+# meant to be used by plugins (E.g.DoS protection plugin).
+# By default, Global and IP collections (see rule 901320),
+# being not used by core rules, are not initialized.
+#
+# Uncomment this rule to change the default:
+#
+#SecAction \
+#    "id:900130,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.20.0',\
+#    setvar:tx.enable_default_collections=1"
+
+
+#
+# -- [[ HTTP Policy Settings ]] ------------------------------------------------
+#
+# YOU SHOULD SET THIS PER SITE in *-before.conf !!!
+#
+#SecAction \
+#    "id:900200,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.20.0',\
+#    setvar:'tx.allowed_methods=GET HEAD POST OPTIONS'"
+
+# Content-Types that a client is allowed to send in a request.
+# Default: |application/x-www-form-urlencoded| |multipart/form-data| |text/xml|
+# |application/xml| |application/soap+xml| |application/json| |application/reports+json| |application/csp-report|
+#
+# Uncomment this rule to change the default.
+#
+#SecAction \
+#    "id:900220,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.20.0',\
+#    setvar:'tx.allowed_request_content_type=|application/x-www-form-urlencoded| |multipart/form-data| |text/xml| |application/xml| |application/soap+xml| |application/json| |application/reports+json| |application/csp-report|'"
+
+# Allowed HTTP versions.
+# You should look that this matches with hour haproxy.cfg
+SecAction \
+    "id:900230,\
+    phase:1,\
+    pass,\
+    t:none,\
+    nolog,\
+    tag:'OWASP_CRS',\
+    ver:'OWASP_CRS/4.20.0',\
+    setvar:'tx.allowed_http_versions=HTTP/1.1 HTTP/2 HTTP/2.0'"
+
+# /accept-charset/
+#   Deprecated header that should not be used by clients and should be ignored
+#   by servers. Can be used for a response WAF bypass by asking for a charset
+#   that the WAF cannot decode. Considered to be a good indicator of suspicious
+#   behavior but produces too many false positives to be forbidden by default.
+#   References:
+#   https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Charset
+#   https://github.com/coreruleset/coreruleset/issues/3140
+#
+SecAction \
+    "id:900255,\
+    phase:1,\
+    pass,\
+    t:none,\
+    nolog,\
+    tag:'OWASP_CRS',\
+    ver:'OWASP_CRS/4.20.0',\
+    setvar:'tx.restricted_headers_extended=/accept-charset/'"
+
+#
+# -- [[ Check UTF-8 encoding ]] ------------------------------------------------
+#
+SecAction \
+    "id:900950,\
+    phase:1,\
+    pass,\
+    t:none,\
+    nolog,\
+    tag:'OWASP_CRS',\
+    ver:'OWASP_CRS/4.20.0',\
+    setvar:tx.crs_validate_utf8_encoding=1"
+
+# -- [[ End of setup ]] --------------------------------------------------------
+#
+# The CRS checks the tx.crs_setup_version variable to ensure that the setup
+# has been loaded. If you are not planning to use this setup template,
+# you must manually set the tx.crs_setup_version variable before including
+# the CRS rules/* files.
+#
+# The variable is a numerical representation of the CRS version number.
+# E.g., v3.0.0 is represented as 300.
+#
+SecAction \
+    "id:900990,\
+    phase:1,\
+    pass,\
+    t:none,\
+    nolog,\
+    tag:'OWASP_CRS',\
+    ver:'OWASP_CRS/4.20.0',\
+    setvar:tx.crs_setup_version=4200"

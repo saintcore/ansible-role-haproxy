@@ -32,6 +32,20 @@
     - Reload haproxy
   when: haproxy_maps | length > 0
 
+- name: Ensure logfile exists
+  become: true
+  ansible.builtin.copy:
+    content: ""
+    dest: "{{ item }}"
+    force: false
+    group: "{{ ((ansible_distribution == 'Ubuntu') | ternary('adm', 'root')) }}"
+    owner: "{{ ((ansible_distribution == 'Ubuntu') | ternary('syslog', 'root')) }}"
+    mode: '0640'
+  with_items:
+    - /var/log/haproxy.log
+  notify:
+    - Restart rsyslog
+
 - name: Ensure rsyslog is installed (for HAProxy logging)
   become: true
   ansible.builtin.package:
@@ -46,8 +60,14 @@
     owner: root
     group: root
     mode: '0644'
-  notify:
-    - Restart rsyslog
+  register: haproxy_rsyslog_conf_status
+
+- name: Restart rsyslog immediately to enable UDP listener
+  become: true
+  ansible.builtin.service:
+    name: rsyslog
+    state: restarted
+  when: haproxy_rsyslog_conf_status.changed
 
 - name: Copy haproxy.cfg and ensure correct owner and group are set
   become: true
@@ -59,20 +79,6 @@
     mode: '0644'
   notify:
     - Reload haproxy
-
-- name: Ensure logfile exists
-  become: true
-  ansible.builtin.copy:
-    content: ""
-    dest: "{{ item }}"
-    force: false
-    group: "{{ ((ansible_distribution == 'Ubuntu') | ternary('adm', 'root')) }}"
-    owner: "{{ ((ansible_distribution == 'Ubuntu') | ternary('syslog', 'root')) }}"
-    mode: '0640'
-  with_items:
-    - /var/log/haproxy.log
-  notify:
-    - Restart rsyslog
 
 - name: Ensure haproxy is enabled
   become: true
@@ -108,3 +114,4 @@
   ansible.builtin.systemd_service:
     name: haproxy
     state: 'started'
+  when: not haproxy_coraza # do only already start haproxy if we don't configure coraza. else start would fail because we miss on referenced config files
