@@ -1,7 +1,5 @@
 ---
 # tasks file for haproxy
-
-# Variable setup using first found strategy
 - name: Include OS/Version-specific variables
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
@@ -16,22 +14,32 @@
 
 - name: Gather service facts
   ansible.builtin.service_facts: {}
-  tags: always
+  tags:
+    - haproxy
+    - haproxy-install
+    - haproxy-cluster
 
 - name: Install haproxy
-  ansible.builtin.include_tasks: install.yml
+  ansible.builtin.import_tasks: install.yml
   tags:
     - haproxy
     - haproxy-install
 
 - name: Configure haproxy
-  ansible.builtin.include_tasks: configure.yml
+  ansible.builtin.import_tasks: configure.yml
   tags:
     - haproxy
     - haproxy-configure
 
 - name: Configure cluster
-  ansible.builtin.include_tasks: cluster.yml
+  ansible.builtin.import_tasks: cluster.yml
   tags:
     - haproxy
     - haproxy-cluster
+
+- name: Build and configure coraza-spoa
+  ansible.builtin.import_tasks: coraza.yml
+  when: ansible_os_family == 'RedHat' and haproxy_coraza
+  tags:
+    - haproxy
+    - haproxy-coraza

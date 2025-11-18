@@ -23,7 +23,7 @@ global
     ssl-default-server-ciphers PROFILE=SYSTEM
 
     # run haproxy with multithread support. the number should match the output from 'nproc' aka your actual cores including hyper-threading
-    nbthread 4
+    nbthread {{ haproxy_nbthread }}
 
 #---------------------------------------------------------------------
 # common defaults that all the 'listen' and 'backend' sections will
@@ -42,7 +42,6 @@ defaults
     maxconn                 3000
     balance                 roundrobin
     log                     global
-    option                  forwardfor
 
 #---------------------------------------------------------------------
 # listen for ha stats - will be used by kibana/elasticsearch
@@ -67,11 +66,42 @@ frontend http_in
     option          http-keep-alive
     timeout client 30s
 
+    {% if haproxy_coraza %}
+    # the unique-id is used to match enries between haproxy.log and coraza's log. see also ec_haproxy_coraza.cfg
+    unique-id-format %[uuid()]
+    unique-id-header X-Unique-ID
+    log-format      "%ci:%cp [%tr] %ft %b/%s %TR/%Tw/%Tc/%Tr/%Tt %ST %B %CC %CS %tsc %ac/%fc/%bc/%sc/%rc %sq/%bq %hr %hs %{+Q}r %ID"
+    filter spoe engine coraza config /etc/haproxy/coraza.cfg
+
+    # Currently haproxy cannot use variables to set the code or deny_status, so this needs to be manually configured here
+    http-request redirect code 302 location %[var(txn.coraza.data)] if { var(txn.coraza.action) -m str redirect }
+    http-response redirect code 302 location %[var(txn.coraza.data)] if { var(txn.coraza.action) -m str redirect }
+
+    http-request deny deny_status 403 hdr waf-block "request"  if { var(txn.coraza.action) -m str deny }
+    http-response deny deny_status 403 hdr waf-block "response" if { var(txn.coraza.action) -m str deny }
+
+    http-request silent-drop if { var(txn.coraza.action) -m str drop }
+    http-response silent-drop if { var(txn.coraza.action) -m str drop }
+
+    # Deny in case of an error, when processing with the Coraza SPOA
+    # this also happens if you provide none domain name and/or a domain for which no app is configure within coraza due to how we dispatch
+    http-request deny deny_status 500 if { var(txn.coraza.error) -m int gt 0 }
+    http-response deny deny_status 500 if { var(txn.coraza.error) -m int gt 0 }
+    {% endif %}
+
     default_backend no-match
 
 #---------------------------------------------------------------------
 # Backends
 #---------------------------------------------------------------------
+{% if haproxy_coraza %}
+backend coraza-spoa
+    option spop-check
+    mode tcp
+    timeout connect 5s # greater then hello timeout
+    timeout server 3m # greater then idle timeout
+    server s1 127.0.0.1:9000 check
+{% endif %}
 
 #---------------------------------------------------------------------
 # backend no-match, default

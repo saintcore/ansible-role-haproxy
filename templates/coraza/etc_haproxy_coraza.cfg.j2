@@ -1,0 +1,29 @@
+# {{ ansible_managed }}
+# source: https://github.com/corazawaf/coraza-spoa/blob/main/example/haproxy/coraza.cfg
+# https://github.com/haproxy/haproxy/blob/master/doc/SPOE.txt
+[coraza]
+spoe-agent coraza-agent
+    # Process HTTP requests only (the responses are not evaluated)
+    messages    coraza-req
+    # Comment the previous line and add coraza-res, to process responses also.
+    #messages   coraza-req     coraza-res
+    option      var-prefix      coraza
+    option      set-on-error    error
+    timeout     hello           2s
+    timeout     idle            2m
+    timeout     processing      500ms
+    use-backend coraza-spoa
+    # enable the line below if you need informational logging of every request that is proccessed by coraza within haproxy.log
+    #log         global
+
+spoe-message coraza-req
+    # Arguments are required to be in this order
+    # id=unique-id is the id we generate within haproxy.cfg to match (eventual) actions taken with the corresponding request within haproxy.log
+    args app=req.hdr(host),regsub("^www.",,i) id=unique-id src-ip=src src-port=src_port dst-ip=dst dst-port=dst_port method=method path=path query=query version=req.ver headers=req.hdrs body=req.body
+    event on-frontend-http-request
+
+spoe-message coraza-res
+    # Arguments are required to be in this order
+    args app=str(txn.app_name) id=var(txn.e2e.id) version=res.ver status=status headers=res.hdrs body=res.body
+    event on-http-response
+

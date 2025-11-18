@@ -308,14 +308,17 @@
         fail_msg: "The stats page did not return the expected '<title>Statistics Report for HAProxy</title>' content."
         quiet: true
 
-    - name: Verify | Make test request to HAProxy (expect 400)
+    - name: Verify | Make test request to HAProxy (Expect 403 if Coraza, else 400)
       ansible.builtin.uri:
         url: http://localhost/
-        status_code: 400
+        status_code: "{{ haproxy_coraza | default(false) | ternary(403, 400) }}"
 
-    - name: Verify | Check for the 400 log entry in /var/log/haproxy.log
+    - name: Verify | Check for the log entry in /var/log/haproxy.log
       ansible.builtin.command:
-        cmd: grep 'http_in no-match.* 400 206 .* "GET / HTTP/1.1"' /var/log/haproxy.log
+        cmd: >-
+          grep 'http_in
+          {{ haproxy_coraza | default(false) | ternary("http_in/<NOSRV>.* 403 72", "no-match.* 400 206") }}
+          .* "GET / HTTP/1.1"' /var/log/haproxy.log
       changed_when: false
 
     - name: Verify | Assert keepalived package is installed

@@ -1,7 +1,5 @@
 ---
-# file: install.yml
-
-- name: Install - ensure SELinux Python libraries (RHEL-family) are installed
+- name: Ensure SELinux Python libraries (RHEL-family) are installed
   become: true
   ansible.builtin.package:
     name:
@@ -9,16 +7,10 @@
       - python3-policycoreutils
     state: present
   when: ansible_os_family == 'RedHat'
-  tags:
-    - haproxy
-    - haproxy-install
 
-- name: Install - ensure haproxy package is installed
+- name: Ensure haproxy package is installed
   become: true
   ansible.builtin.package:
     name: "{{ haproxy_package_name }}{{ (ansible_os_family == 'RedHat') | ternary('-', '=') }}{{ haproxy_pin_version }}.*"
     state: present
     update_cache: true
-  tags:
-    - haproxy
-    - haproxy-install

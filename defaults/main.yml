@@ -3,6 +3,7 @@
 haproxy_maps: []
 haproxy_rsyslog: 'etc_rsyslog.haproxy.conf.j2'
 haproxy_config: 'etc_haproxy_haproxy.cfg.j2'
+haproxy_nbthread: 1
 haproxy_seport_http_custom: []
 
 # cluster
@@ -12,3 +13,18 @@ haproxy_keepalived_state:
 haproxy_keepalived_priority:
 haproxy_keepalived_pass:
 haproxy_keepalived_virtualip:
+
+# coraza
+haproxy_coraza: false
+haproxy_coraza_selinux: false
+haproxy_coraza_selinux_v:
+haproxy_coraza_version: 'main'
+haproxy_coraza_crs_version: 'main'
+haproxy_coraza_port:
+haproxy_coraza_sitesconfigdirs: []
+haproxy_coraza_sitesconfigfiles: []
+haproxy_coraza_configyaml: 'coraza/etc_coraza-spoa_config.yaml.j2'
+haproxy_coraza_conf: 'coraza/etc_coraza-spoa_coraza.conf.j2'
+haproxy_coraza_spoaconf: 'coraza/etc_haproxy_coraza.cfg.j2'
+haproxy_coraza_owasp_csrconf: 'coraza/etc_coraza_crs-setup.conf.j2'
+haproxy_coraza_systemd: 'coraza/etc_systemd_system_coraza-spoa.service.j2'

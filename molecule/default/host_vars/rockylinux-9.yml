@@ -2,3 +2,9 @@
 # file: rockylinux-9-yml
 haproxy_keepalived_state: MASTER
 haproxy_keepalived_priority: 110
+
+# enable coraza
+haproxy_coraza: true
+haproxy_coraza_selinux: true
+haproxy_coraza_selinux_v: 'v1.1.1'
+haproxy_coraza_port: 9000

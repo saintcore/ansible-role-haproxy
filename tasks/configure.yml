@@ -1,7 +1,5 @@
 ---
-# file: configure.yml
-
-- name: Configure - ensure certs directory exists
+- name: Ensure certs directory exists
   become: true
   ansible.builtin.file:
     path: /etc/haproxy/certs
@@ -9,11 +7,8 @@
     group: root
     owner: root
     mode: '0600'
-  tags:
-    - haproxy
-    - haproxy-configure
 
-- name: Configure - ensure maps directory exists
+- name: Ensure maps directory exists
   become: true
   ansible.builtin.file:
     path: /etc/haproxy/maps
@@ -22,11 +17,8 @@
     owner: root
     mode: '0600'
   when: haproxy_maps | length > 0
-  tags:
-    - haproxy
-    - haproxy-configure
 
-- name: Configure - copy maps-files and ensure correct owner and group are set
+- name: Copy maps-files and ensure correct owner and group are set
   become: true
   ansible.builtin.template:
     src: "{{ item.origin }}"
@@ -39,48 +31,8 @@
   notify:
     - Reload haproxy
   when: haproxy_maps | length > 0
-  tags:
-    - haproxy
-    - haproxy-configure
 
-- name: Configure - ensure rsyslog is installed (for HAProxy logging)
-  become: true
-  ansible.builtin.package:
-    name: rsyslog
-    state: present
-  tags:
-    - haproxy
-    - haproxy-configure
-
-- name: Configure - copy  rsyslog haproxy.conf and ensure correct owner and group are set
-  become: true
-  ansible.builtin.template:
-    src: "{{ haproxy_rsyslog }}"
-    dest: '/etc/rsyslog.d/haproxy.conf'
-    owner: root
-    group: root
-    mode: '0644'
-  notify:
-    - Restart rsyslog
-  tags:
-    - haproxy
-    - haproxy-configure
-
-- name: Configure - copy haproxy.cfg and ensure correct owner and group are set
-  become: true
-  ansible.builtin.template:
-    src: "{{ haproxy_config }}"
-    dest: '/etc/haproxy/haproxy.cfg'
-    owner: root
-    group: root
-    mode: '0644'
-  notify:
-    - Reload haproxy
-  tags:
-    - haproxy
-    - haproxy-configure
-
-- name: Configure - ensure logfile exists
+- name: Ensure logfile exists
   become: true
   ansible.builtin.copy:
     content: ""
@@ -93,20 +45,48 @@
     - /var/log/haproxy.log
   notify:
     - Restart rsyslog
-  tags:
-    - haproxy
-    - haproxy-configure
 
-- name: Configure - ensure haproxy is enabled
+- name: Ensure rsyslog is installed (for HAProxy logging)
+  become: true
+  ansible.builtin.package:
+    name: rsyslog
+    state: present
+
+- name: Copy  rsyslog haproxy.conf and ensure correct owner and group are set
+  become: true
+  ansible.builtin.template:
+    src: "{{ haproxy_rsyslog }}"
+    dest: '/etc/rsyslog.d/haproxy.conf'
+    owner: root
+    group: root
+    mode: '0644'
+  register: haproxy_rsyslog_conf_status
+
+- name: Restart rsyslog immediately to enable UDP listener
+  become: true
+  ansible.builtin.service:
+    name: rsyslog
+    state: restarted
+  when: haproxy_rsyslog_conf_status.changed # noqa: no-handler
+
+- name: Copy haproxy.cfg and ensure correct owner and group are set
+  become: true
+  ansible.builtin.template:
+    src: "{{ haproxy_config }}"
+    dest: '/etc/haproxy/haproxy.cfg'
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - Reload haproxy
+
+- name: Ensure haproxy is enabled
   become: true
   ansible.builtin.service:
     name: haproxy
     enabled: true
-  tags:
-    - haproxy
-    - haproxy-configure
 
-- name: Configure - allow haproxy to listen on defined http ports # 8000: stats-interface, 8899: certbot
+- name: Allow haproxy to listen on defined http ports # 8000: stats-interface, 8899: certbot
   become: true
   community.general.seport:
     ports: "{{ ['8000', '8899'] + (haproxy_seport_http_custom | default([])) }}"
@@ -116,11 +96,8 @@
   when: ansible_selinux.status != 'disabled'
   notify:
     - Reload haproxy
-  tags:
-    - haproxy
-    - haproxy-configure
 
-- name: Configure - Set AppArmor rules for HAProxy
+- name: Set AppArmor rules for HAProxy
   become: true
   ansible.builtin.template:
     src: '{{ haproxy_apparmor_config }}'
@@ -131,15 +108,10 @@
   when: ansible_apparmor.status == 'enabled'
   notify:
     - Reload AppArmor
-  tags:
-    - haproxy
-    - haproxy-configure
 
-- name: Configure - ensure haproxy is started
+- name: Ensure haproxy is started
   become: true
   ansible.builtin.systemd_service:
     name: haproxy
     state: 'started'
-  tags:
-    - haproxy
-    - haproxy-configure
+  when: not haproxy_coraza # do only already start haproxy if we don't configure coraza. else start would fail because we miss on referenced config files

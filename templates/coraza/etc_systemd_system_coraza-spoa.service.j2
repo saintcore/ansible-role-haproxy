@@ -1,0 +1,58 @@
+[Unit]
+Description=Coraza WAF SPOA Daemon
+Documentation=https://www.coraza.io
+
+[Service]
+ExecStart=/usr/sbin/coraza-spoa -config=/etc/coraza-spoa/config.yaml
+WorkingDirectory=/
+Restart=always
+Type=exec
+User=coraza
+Group=coraza
+
+# Hardening
+AmbientCapabilities=
+MountFlags=private
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectProc=noaccess
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=true
+RestrictRealtime=true
+SecureBits=no-setuid-fixup-locked noroot-locked
+ProtectSystem=strict
+ReadOnlyPaths=/
+
+BindReadOnlyPaths=-/etc/ca-certificates
+BindReadOnlyPaths=-/etc/crypto-policies
+BindReadOnlyPaths=-/etc/fdns
+BindReadOnlyPaths=-/etc/ld.so.cache
+BindReadOnlyPaths=-/etc/ld.so.preload
+BindReadOnlyPaths=-/etc/localtime
+BindReadOnlyPaths=-/etc/nsswitch.conf
+BindReadOnlyPaths=-/etc/passwd
+BindReadOnlyPaths=-/etc/pki
+BindReadOnlyPaths=-/etc/ssl
+
+LockPersonality=true
+LogsDirectory=coraza-spoa
+LogsDirectoryMode=0750
+ConfigurationDirectoryMode=0700
+ConfigurationDirectory=coraza-spoa
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=true
+ProtectHome=true
+PrivateDevices=true
+PrivateTmp=true
+RemoveIPC=true
+RestrictAddressFamilies=AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service -@setuid -@ipc -@mount
+IPAddressDeny=any
+IPAddressAllow=localhost
+
+[Install]
+WantedBy=multi-user.target
