@@ -14,3 +14,11 @@
     name: "{{ haproxy_package_name }}{{ (ansible_os_family == 'RedHat') | ternary('-', '=') }}{{ haproxy_pin_version }}.*"
     state: present
     update_cache: true
+
+- name: Ensure certbot package is installed
+  become: true
+  ansible.builtin.package:
+    name: "{{ haproxy_certbot_package_name }}"
+    state: present
+    update_cache: true
+  when: haproxy_certbot

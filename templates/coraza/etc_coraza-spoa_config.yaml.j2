@@ -1,7 +1,7 @@
 # {{ ansible_managed }}
 # souce: https://github.com/corazawaf/coraza-spoa/blob/main/example/coraza-spoa.yaml
 # The SPOA server bind address
-bind: 127.0.0.1:9000
+bind: 127.0.0.1:{{ haproxy_coraza_port }}
 
 # The log level configuration, one of: debug/info/warn/error/panic/fatal
 log_level: info

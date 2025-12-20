@@ -1,5 +1,5 @@
 # {{ ansible_managed }}
-# optimized for HAProxy version 2.4.X LTS based on https://www.haproxy.org/download/2.4/doc/configuration.txt
+#  https://www.haproxy.org/download/2.8/doc/configuration.txt
 #
 #---------------------------------------------------------------------
 # Global settings
@@ -89,6 +89,11 @@ frontend http_in
     http-response deny deny_status 500 if { var(txn.coraza.error) -m int gt 0 }
     {% endif %}
 
+    {% if haproxy_certbot %}
+    acl acl_acme_http path_beg -i /.well-known/acme-challenge/
+    use_backend certbot if acl_acme_http
+    {% endif %}
+
     default_backend no-match
 
 #---------------------------------------------------------------------
@@ -100,7 +105,12 @@ backend coraza-spoa
     mode tcp
     timeout connect 5s # greater then hello timeout
     timeout server 3m # greater then idle timeout
-    server s1 127.0.0.1:9000 check
+    server s1 127.0.0.1:{{ haproxy_coraza_port}} check
+{% endif %}
+
+{% if haproxy_certbot %}
+backend certbot
+    server      certbot localhost:8899
 {% endif %}
 
 #---------------------------------------------------------------------

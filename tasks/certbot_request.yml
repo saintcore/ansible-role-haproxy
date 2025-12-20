@@ -1,0 +1,51 @@
+---
+- name: Certbot request - check if cert already exists
+  become: true
+  ansible.builtin.stat:
+    path: /etc/letsencrypt/live/{{ item.name }}/fullchain.pem
+  with_items: "{{ haproxy_domains }}"
+  register: haproxy_certs
+  when: haproxy_keepalived_state != 'BACKUP'
+
+- name: Certbot request - requesting certificates
+  become: true
+  ansible.builtin.command: certbot certonly --standalone -d {{ item.item.name }} --non-interactive --agree-tos --http-01-port=8899
+  loop: "{{ haproxy_certs.results }}"
+  when: haproxy_keepalived_state != 'BACKUP' and not item.stat.exists
+  changed_when: true
+
+- name: Certbot request - combine cert and private key into single file for usage with haproxy
+  become: true
+  ansible.builtin.shell: >-
+    cat /etc/letsencrypt/live/{{ item.item.name }}/fullchain.pem /etc/letsencrypt/live/{{ item.item.name }}/privkey.pem
+    > /etc/haproxy/certs/{{ item.item.name }}.pem
+  loop: "{{ haproxy_certs.results }}"
+  when: haproxy_keepalived_state != 'BACKUP' and not item.stat.exists
+  changed_when: true
+  notify: Reload haproxy
+
+- name: Certbot request - ensure certs have correct permissions set
+  become: true
+  ansible.builtin.file:
+    path: /etc/haproxy/certs/{{ item.item.name }}.pem
+    owner: root
+    group: root
+    mode: '0600'
+  loop: "{{ haproxy_certs.results }}"
+  when: haproxy_keepalived_state != 'BACKUP' and not item.stat.exists
+
+- name: Certbot request - find certs to sync
+  become: true
+  ansible.builtin.find:
+    paths: /etc/haproxy/certs/
+  register: haproxy_files2fetch
+  when: haproxy_cluster and haproxy_keepalived_state != 'BACKUP'
+
+- name: Certbot request - transfer certs from main to ansible
+  become: true
+  ansible.builtin.fetch:
+    src: "{{ item.path }}"
+    dest: files/haproxy-certs-temp/
+    flat: true
+  when: haproxy_cluster and haproxy_keepalived_state != 'BACKUP'
+  with_items: "{{ haproxy_files2fetch.files }}"

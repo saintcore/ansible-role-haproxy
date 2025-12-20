@@ -1,0 +1,62 @@
+---
+- name: Certbot renew - renew certificates
+  become: true
+  ansible.builtin.command: certbot renew --http-01-port=8899
+  register: haproxy_certs
+  changed_when: "'No renewals were attempted' not in haproxy_certs.stdout"
+  when: haproxy_keepalived_state != 'BACKUP'
+  notify: Reload haproxy
+
+- name: Certbot renew - combine cert and private key into single file for usage with haproxy
+  become: true
+  ansible.builtin.shell: >-
+    cat /etc/letsencrypt/live/{{ item.name }}/fullchain.pem /etc/letsencrypt/live/{{ item.name }}/privkey.pem > /etc/haproxy/certs/{{ item.name }}.pem
+  with_items: "{{ haproxy_domains }}"
+  changed_when: false
+  when: haproxy_keepalived_state != 'BACKUP'
+  notify: Reload haproxy
+
+- name: Certbot renew - ensure certs have correct permissions set
+  become: true
+  ansible.builtin.file:
+    path: /etc/haproxy/certs/{{ item.name }}.pem
+    owner: root
+    group: root
+    mode: '0600'
+  with_items: "{{ haproxy_domains }}"
+  when: haproxy_keepalived_state != 'BACKUP'
+
+- name: Certbot renew - find certs to sync
+  become: true
+  ansible.builtin.find:
+    paths: /etc/haproxy/certs/
+  register: haproxy_files2fetch
+  when: haproxy_keepalived_state != 'BACKUP'
+
+- name: Certbot renew - transfer certs from main to ansible
+  become: true
+  ansible.builtin.fetch:
+    src: "{{ item.path }}"
+    dest: files/haproxy-certs-temp/
+    flat: true
+  when: haproxy_keepalived_state != 'BACKUP'
+  with_items: "{{ haproxy_files2fetch.files }}"
+
+- name: Certbot renew - find certs to sync
+  ansible.builtin.find:
+    paths: /home/sysadmina/ansible/files/haproxy-certs-temp/
+  register: haproxy_files2fetch2
+  when: haproxy_keepalived_state == 'BACKUP'
+  delegate_to: localhost
+
+- name: Certbot renew - transfer certs from ansible to backup
+  become: true
+  ansible.builtin.copy:
+    src: "{{ item.path }}"
+    dest: /etc/haproxy/certs/
+    owner: root
+    group: root
+    mode: '0600'
+  when: haproxy_keepalived_state == 'BACKUP'
+  with_items: "{{ haproxy_files2fetch2.files }}"
+  notify: Reload haproxy

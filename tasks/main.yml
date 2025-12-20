@@ -11,6 +11,8 @@
     - haproxy
     - haproxy-install
     - haproxy-cluster
+    - haproxy-certbot-request
+    - haproxy-certbot-renew
 
 - name: Gather service facts
   ansible.builtin.service_facts: {}
@@ -18,6 +20,8 @@
     - haproxy
     - haproxy-install
     - haproxy-cluster
+    - haproxy-certbot-request
+    - haproxy-certbot-renew
 
 - name: Install haproxy
   ansible.builtin.import_tasks: install.yml
@@ -43,3 +47,17 @@
   tags:
     - haproxy
     - haproxy-coraza
+
+- name: Request non-existing certs with certbot
+  ansible.builtin.import_tasks: certbot_request.yml
+  when: haproxy_certbot
+  tags:
+    - haproxy
+    - haproxy-certbot-request
+
+- name: Renew existing certs with certbot
+  ansible.builtin.import_tasks: certbot_renew.yml
+  when: haproxy_certbot
+  tags:
+    - haproxy
+    - haproxy-certbot-renew
