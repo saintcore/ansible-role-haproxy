@@ -1,2 +1,3 @@
 ---
 # vars file for haproxy
+haproxy_certbot_package_name: 'certbot'

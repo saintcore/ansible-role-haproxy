@@ -28,3 +28,6 @@ haproxy_coraza_conf: 'coraza/etc_coraza-spoa_coraza.conf.j2'
 haproxy_coraza_spoaconf: 'coraza/etc_haproxy_coraza.cfg.j2'
 haproxy_coraza_owasp_csrconf: 'coraza/etc_coraza_crs-setup.conf.j2'
 haproxy_coraza_systemd: 'coraza/etc_systemd_system_coraza-spoa.service.j2'
+
+# certbot
+haproxy_certbot: false

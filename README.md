@@ -8,6 +8,7 @@ This role installs and configures **HAProxy** (High Availability Proxy) as a rob
 
 * **Keepalived**: For high-availability clustering, managing virtual router redundancy protocol (VRRP) to ensure the service's VIP remains active even if a node fails.
 * **Coraza-SPOA**: A high-performance Web Application Firewall (WAF) using the HAProxy Stream Processing Offload Agent (SPOA) protocol. It comes pre-integrated with the **Core Rule Set (CRS)** to provide protection against common web attack categories (like SQL Injection, XSS, etc.).
+* **Certs/Certbot**: Request and renew certs with certbot-standalone to use with haproxy.
 
 Requirements
 ------------
@@ -35,6 +36,13 @@ Role Variables
 | haproxy_package_name          | package name to install       | haproxy                       | see vars folder   |
 | haproxy_pin_version           | packae version to insall      | "2.4"                         | see vars folder   |
 | haproxy_apparmor_config   | apparmor config for debian    | 'etc_apparmor.d_local_usr.sbin.haproxy.j2' | see vars folder |
+
+## certbot
+
+| Variable                      | Description                       | Default                       | Defined in        |
+| :---                          | :---                              | :---                          | :---              |
+| haproxy_certbot               | (opt) run cert-related tasks      | false                         | defaults/main.yml |
+| haproxy_certbot_package_name  | (opt) certbot package to install  | 'certbot'                     | vars/main.yml
 
 ## keepalived
 
