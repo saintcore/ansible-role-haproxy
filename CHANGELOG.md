@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/saintcore/ansible-role-haproxy/compare/v1.0.0...v1.0.1) (2025-12-20)
+
+
+### Bug Fixes
+
+* provide mandatory --email param for initial cert request ([#5](https://github.com/saintcore/ansible-role-haproxy/issues/5)) ([c7d85a5](https://github.com/saintcore/ansible-role-haproxy/commit/c7d85a50d4a8ac1f5e2fafbfcc25d031ea0f3c59))
+
 ## 1.0.0 (2025-12-20)
 
 
