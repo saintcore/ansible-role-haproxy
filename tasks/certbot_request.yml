@@ -9,7 +9,7 @@
 
 - name: Certbot request - requesting certificates
   become: true
-  ansible.builtin.command: certbot certonly --standalone -d {{ item.item.name }} --non-interactive --agree-tos --http-01-port=8899
+  ansible.builtin.command: certbot certonly --standalone -d {{ item.item.name }} --non-interactive --agree-tos --http-01-port=8899 --email {{ item.item.mail }}
   loop: "{{ haproxy_certs.results }}"
   when: haproxy_keepalived_state != 'BACKUP' and not item.stat.exists
   changed_when: true
