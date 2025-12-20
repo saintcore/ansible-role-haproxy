@@ -7,5 +7,3 @@ haproxy_cluster: true
 haproxy_keepalived_state: BACKUP
 haproxy_keepalived_pass: "testing"
 haproxy_keepalived_virtualip: "10.89.0.100"
-
-haproxy_certbot: true
