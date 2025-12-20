@@ -1,9 +1,17 @@
 ---
+- name: Certbot request - check if cert already exists
+  become: true
+  ansible.builtin.stat:
+    path: /etc/letsencrypt/live/{{ item.name }}/fullchain.pem
+  with_items: "{{ haproxy_domains }}"
+  register: haproxy_certs
+  when: haproxy_keepalived_state != 'BACKUP'
+
 - name: Certbot request - requesting certificates
   become: true
-  ansible.builtin.command: certbot certonly --standalone -d {{ item.name }} --non-interactive --agree-tos --http-01-port=8899 --email {{ item.mail }}
-  loop: "{{ haproxy_domains }}"
-  when: haproxy_keepalived_state != 'BACKUP'
+  ansible.builtin.command: certbot certonly --standalone -d {{ item.item.name }} --non-interactive --agree-tos --http-01-port=8899 --email {{ item.item.mail }}
+  loop: "{{ haproxy_certs.results }}"
+  when: haproxy_keepalived_state != 'BACKUP' and not item.stat.exists
   changed_when: true
 
 - name: Certbot request - combine cert and private key into single file for usage with haproxy
