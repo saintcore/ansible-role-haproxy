@@ -100,7 +100,7 @@ backend coraza-spoa
     mode tcp
     timeout connect 5s # greater then hello timeout
     timeout server 3m # greater then idle timeout
-    server s1 127.0.0.1:9000 check
+    server s1 127.0.0.1:{{ haproxy_coraza_port}} check
 {% endif %}
 
 #---------------------------------------------------------------------
