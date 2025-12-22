@@ -10,7 +10,9 @@
   tags:
     - haproxy
     - haproxy-install
+    - haproxy-configure
     - haproxy-cluster
+    - haproxy-coraza
     - haproxy-certbot-request
     - haproxy-certbot-renew
 
@@ -19,7 +21,9 @@
   tags:
     - haproxy
     - haproxy-install
+    - haproxy-configure
     - haproxy-cluster
+    - haproxy-coraza
     - haproxy-certbot-request
     - haproxy-certbot-renew
 
